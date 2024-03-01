@@ -74,8 +74,25 @@ pub const FUSE_KERNEL_MINOR_VERSION: u32 = 28;
 pub const FUSE_KERNEL_MINOR_VERSION: u32 = 29;
 #[cfg(all(feature = "abi-7-30", not(feature = "abi-7-31")))]
 pub const FUSE_KERNEL_MINOR_VERSION: u32 = 30;
-#[cfg(feature = "abi-7-31")]
+#[cfg(feature = "abi-7-31"), not(feature = "abi-7-32")]
 pub const FUSE_KERNEL_MINOR_VERSION: u32 = 31;
+#[cfg(feature = "abi-7-32"), not(feature = "abi-7-33")]
+pub const FUSE_KERNEL_MINOR_VERSION: u32 = 32;
+#[cfg(feature = "abi-7-33"), not(feature = "abi-7-34")]
+pub const FUSE_KERNEL_MINOR_VERSION: u32 = 33;
+#[cfg(feature = "abi-7-34"), not(feature = "abi-7-35")]
+pub const FUSE_KERNEL_MINOR_VERSION: u32 = 34;
+#[cfg(feature = "abi-7-35"), not(feature = "abi-7-36")]
+pub const FUSE_KERNEL_MINOR_VERSION: u32 = 35;
+#[cfg(feature = "abi-7-36"), not(feature = "abi-7-37")]
+pub const FUSE_KERNEL_MINOR_VERSION: u32 = 36;
+#[cfg(feature = "abi-7-37"), not(feature = "abi-7-38")]
+pub const FUSE_KERNEL_MINOR_VERSION: u32 = 37;
+#[cfg(feature = "abi-7-38"), not(feature = "abi-7-39")]
+pub const FUSE_KERNEL_MINOR_VERSION: u32 = 38;
+#[cfg(feature = "abi-7-39")]
+pub const FUSE_KERNEL_MINOR_VERSION: u32 = 39;
+
 
 pub const FUSE_ROOT_ID: u64 = 1;
 
@@ -106,12 +123,12 @@ pub struct fuse_attr {
     pub uid: u32,
     pub gid: u32,
     pub rdev: u32,
-    #[cfg(target_os = "macos")]
-    pub flags: u32, // see chflags(2)
     #[cfg(feature = "abi-7-9")]
     pub blksize: u32,
-    #[cfg(feature = "abi-7-9")]
+    #[cfg(feature = "abi-7-9"), not(target_os = "abi-7-32")]
     pub padding: u32,
+    #[cfg(any(target_os = "macos", feature = "abi-7-32"))]
+    pub flags: u32, // see chflags(2)
 }
 
 #[repr(C)]
@@ -156,6 +173,9 @@ pub mod consts {
     pub const FATTR_LOCKOWNER: u32 = 1 << 9;
     #[cfg(feature = "abi-7-23")]
     pub const FATTR_CTIME: u32 = 1 << 10;
+    //
+    #[cfg(feature = "abi-7-33")]
+    pub const FATTR_KILL_SUIDGID: u32 = 1 << 11;
 
     #[cfg(target_os = "macos")]
     pub const FATTR_CRTIME: u32 = 1 << 28;
@@ -175,6 +195,9 @@ pub mod consts {
     pub const FOPEN_CACHE_DIR: u32 = 1 << 3; // allow caching this directory
     #[cfg(feature = "abi-7-31")]
     pub const FOPEN_STREAM: u32 = 1 << 4; // the file is stream-like (no file position at all)
+                                          // #define FOPEN_NOFLUSH           (1 << 5)
+    #[cfg(feature = "abi-7-35")]
+    pub const FOPEN_NOFLUSH : u32 = 1 << 5; // don't flush data cache on close (unless FUSE_WRITEBACK_CACHE)
 
     #[cfg(target_os = "macos")]
     pub const FOPEN_PURGE_ATTR: u32 = 1 << 30;
@@ -233,6 +256,9 @@ pub mod consts {
     pub const FUSE_NO_OPENDIR_SUPPORT: u32 = 1 << 24; // kernel supports zero-message opendir
     #[cfg(feature = "abi-7-30")]
     pub const FUSE_EXPLICIT_INVAL_DATA: u32 = 1 << 25; // only invalidate cached pages on explicit request
+    #[cfg(feature = "abi-7-31")]
+    pub const FUSE_MAP_ALIGNMENT: u32 = 1 << 26; // communicates the alignment constraint for FUSE_SETUPMAPPING/FUSE_REMOVEMAPPING and
+                                                 // allows the daemon to constrain the addresses and file offsets chosen by the kernel.
 
     #[cfg(target_os = "macos")]
     pub const FUSE_ALLOCATE: u32 = 1 << 27;
@@ -363,6 +389,12 @@ pub enum fuse_opcode {
     FUSE_LSEEK = 46,
     #[cfg(feature = "abi-7-28")]
     FUSE_COPY_FILE_RANGE = 47,
+    #[cfg(feature = "abi-7-31")]
+    FUSE_SETUPMAPPING = 48,
+    #[cfg(feature = "abi-7-31")]
+    FUSE_REMOVEMAPPING = 49,
+    #[cfg(feature = "abi-7-34")]
+    FUSE_SYNCFS = 50,
 
     #[cfg(target_os = "macos")]
     FUSE_SETVOLNAME = 61,
@@ -434,6 +466,12 @@ impl TryFrom<u32> for fuse_opcode {
             46 => Ok(fuse_opcode::FUSE_LSEEK),
             #[cfg(feature = "abi-7-28")]
             47 => Ok(fuse_opcode::FUSE_COPY_FILE_RANGE),
+            #[cfg(feature = "abi-7-31")]
+            48 => Ok(fuse_opcode::FUSE_SETUPMAPPING),
+            #[cfg(feature = "abi-7-31")]
+            49 => Ok(fuse_opcode::FUSE_REMOVEMAPPING),
+            #[cfg(feature = "abi-7-34")]
+            50 => Ok(fuse_opcode::FUSE_SYNCFS),
 
             #[cfg(target_os = "macos")]
             61 => Ok(fuse_opcode::FUSE_SETVOLNAME),
@@ -883,8 +921,10 @@ pub struct fuse_init_out {
     pub reserved: [u32; 9],
     #[cfg(feature = "abi-7-28")]
     pub max_pages: u16,
-    #[cfg(feature = "abi-7-28")]
+    #[cfg(feature = "abi-7-28"), not(feature = "abi-7-31")]
     pub unused2: u16,
+    #[cfg(feature = "abi-7-31")]
+    pub map_alignment: u16,
     #[cfg(feature = "abi-7-28")]
     pub reserved: [u32; 8],
 }
